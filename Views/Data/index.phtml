@@ -1,0 +1,33 @@
+<div class="row">
+    <div class="threefifth centered">
+        <form action="/?page=data&amp;action=add" method="post" enctype="multipart/form-data" class="forms columnar">
+            <fieldset>
+                <legend>File upload</legend>
+                <ul>
+                    <li>
+                        <label for="regions">region:</label>
+                        <select name="region">
+                            <?php foreach($regions as $region):?>
+                            <option value="<?php echo $region['value']?>"><?php echo $region['text']?></option>
+                            <?php endforeach ?>
+                        </select>
+                    </li>
+                    <li>
+                        <label for="file_upload">file:</label>
+                        <input type="file" name="uploadedfile" id="file_upload" />
+                    </li>
+                    <li class="push">
+                        <input type="submit" value="send" name="submit" class="btn" />
+                    </li>
+                </ul>
+            </fieldset>
+        </form>
+    </div>
+    <script>
+        $('form').submit(function(){
+            if ($('#file_upload').val().length == 0){
+                return false;
+            }
+        });
+    </script>
+</div>

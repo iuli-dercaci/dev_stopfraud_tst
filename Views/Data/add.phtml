@@ -1,0 +1,17 @@
+<div class="row">
+    <div class="third centered">
+            <div class="message"><?php echo $message ?></div>
+            <div class="link-back">
+                <a href="#">Back</a>
+            </div>
+            <?php if (isset($result)): ?>
+            <div class="result"><?php print_r($result); ?></div>
+            <?php endif; ?>
+    </div>
+    </div>
+</div>
+<script>
+    $('.link-back').click(function(){
+        history.back(1);
+    });
+</script>
