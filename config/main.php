@@ -28,5 +28,9 @@ return array(
     'actions' => array(
         'postfix' => 'Action'
     ),
+    'phone_types' => array(
+        'cell number' => 'CL',
+        'landline' => 'LL'
+    ),
     'dev_mode' => true,
 );

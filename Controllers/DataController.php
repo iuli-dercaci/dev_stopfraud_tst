@@ -35,18 +35,47 @@ class DataController extends AbstractController
      * upload process
      */
     public function addAction(){
-
-
-
         $data = array(
             'result'  => false,
             'message' => 'Upload was failed'
         );
-        if (isset($_POST['submit']) && isset($_FILES['uploadedfile']['tmp_name'])){
+        $viewParams = array();
+        if (   isset($_POST['submit'])
+            && isset($_FILES['uploadedfile']['tmp_name'])
+            && $_FILES['uploadedfile']['error'] == 0
+        ){
+            $region = $_POST['regions'];
+            $structure_id = $this->_getCountryId($region);
+            $parsed_data = array();
+            $file_data = $this->_getExcelData($_FILES['uploadedfile']['tmp_name']);
+            foreach ($file_data as $line) {
+                $line_data = array();
+                if ((int)$line[0]){// line has id
+                    $line_data['ParentID'] = $structure_id;
+                    $zones_pattern = '/(?<z1>\d)\D?(?<r3>\d{2})\D*(?<c5>\d*)/';
+                    if (false != ($numbers = preg_match($zones_pattern, $line[1], $m))){
+                        $line_data['z1'] = $m['z1'];
+                        $line_data['r3'] = $m['r3'];
+                        $line_data['c5'] = $m['c5'];
+                    }
+                    $line_data['Full_Prefix'] = preg_replace('/\D/', '', $line[1]);
+                    $line_data['ZoneID'] = $region;
+                    $line_data['Region1_rus'] = $line_data['Region1_rom'] = $line_data['Region1_eng'] = $line[4];
+                    $line_data['City_rus'] = $line_data['City_rom'] = $line_data['City_eng'] = $line[2];
+                    $line_data['Name_rus'] = $line_data['Name_rom'] = $line_data['Name_eng'] = $line[3];
+                    $line_data['TypeID'] = $this->_getPhoneType($line[5]);
+                }
+                if (!empty($line_data)){
+                    $parsed_data[] = $line_data;
+                }
+            }
+            $this->_insertIntoDb($parsed_data);
             $data = array(
                 'message' => 'Successful upload',
-                'result' => $this->_getExcelData($_FILES['uploadedfile']['tmp_name'])
+                'result' => 'Added ' . count($parsed_data) . ' lines'
             );
+        } else {
+            $data = array('message' => 'file upload error, code: ' . $_FILES['uploadedfile']['error']);
         }
         $viewParams = array(
             'controller' => 'Data',
@@ -67,6 +96,25 @@ class DataController extends AbstractController
         */
     }
 
+    private function _insertIntoDb($data){
+        $db = $this->helper('database')->db;
+        foreach($data as $line){
+            $columns = rtrim(join(', ', array_keys($line)), ',');
+            $values  = rtrim(':' . join(', :', array_keys($line)), ', :');
+            $stmt = $db->prepare('INSERT INTO ut_ref_phonecode (' . $columns . ') VALUES (' . $values . ')');
+            $stmt->execute($line);
+        }
+    }
+
+    private function _getPhoneType($name){
+        $name = trim(strtolower($name));
+        $result = 'Unknown';
+        if(isset($this->_config['phone_types'][$name])){
+            $result = $this->_config['phone_types'][$name];
+        }
+        return $result;
+    }
+
     /**
      * data from excel file
      * @param $file
@@ -84,17 +132,25 @@ class DataController extends AbstractController
     private function _getListOfRegions(){
 
         $result = array();
-
         $db = $this->helper('database')->db;
-        $stmt = $db->query('SELECT ParentID, Caption_eng FROM ut_ref_phonezone');
+        $stmt = $db->query('SELECT ref_phonezoneID, Caption_eng FROM ut_ref_phonezone');
         $stmt->setFetchMode(PDO::FETCH_OBJ);
 
         while($row = $stmt->fetch()){
             $result[] = array(
-                'value' => $row->ParentID,
+                'value' => $row->ref_phonezoneID,
                 'text'  => $row->Caption_eng
             );
         }
         return $result;
+    }
+
+    private function _getCountryId($zoneId){
+
+        $db = $this->helper('database')->db;
+        $stmt = $db->query('SELECT ParentID FROM ut_structure WHERE FolderName REGEXP "(Zone ' . (int)$zoneId . ').*" LIMIT 1');
+        $stmt->setFetchMode(PDO::FETCH_OBJ);
+
+        return $stmt->fetch()->ParentID;
     }
 }
